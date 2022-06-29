@@ -1,3 +1,7 @@
+
+// TODO(jack): Currently this code is not correct, if the query has multiple matches for the same node type
+// this will highlight whaterver the last entry is, not the most specific
+// (i.e. is it a child in a query or just query for that node type)
 function void
 ts_highlight_node(Application_Links *app, TSQuery *highlight_query, TSNode top_node, TSQueryCursor * query_cursor, Text_Layout_ID text_layout_id)
 {
@@ -14,7 +18,7 @@ ts_highlight_node(Application_Links *app, TSQuery *highlight_query, TSNode top_n
         const char *tmp = ts_query_capture_name_for_id(highlight_query, capture.index, &length);
         String_Const_u8 capture_name = SCu8((char *)tmp, length);
         
-        Range_i64 highlight_range = ts_node_to_range(node);
+        Range_i64 highlight_range = jpts_node_to_range(node);
         Managed_ID color_id = managed_id_get(app, SCu8("colors"), capture_name);
         if (color_id != 0) {
             paint_text_color_fcolor(app, text_layout_id, highlight_range, fcolor_id(color_id));
@@ -24,59 +28,60 @@ ts_highlight_node(Application_Links *app, TSQuery *highlight_query, TSNode top_n
 }
 
 function void
-ts_draw_cpp_token_colors(Application_Links *app, Text_Layout_ID text_layout_id, Token_Array *array, Buffer_ID buffer)
+jpts_draw_node_colors(Application_Links *app, Text_Layout_ID text_layout_id, Buffer_ID buffer)
 {
     ProfileScope(app, "ts_draw_cpp_token_colors");
     
     Range_i64 visible_range = text_layout_get_visible_range(app, text_layout_id);
     Managed_Scope scope = buffer_get_managed_scope(app, buffer);
-    Buffer_TS_Data *tree_data = scope_attachment(app, scope, ts_data, Buffer_TS_Data);
-    TSTree *tree = ts_buffer_get_tree(tree_data);
     
-    // NOTE(jack): the first time the file opens, the Async parser gets triggered, so may not be immediatly ready.
-    if (tree)
+    Language_Definition *language = jpts_language_from_buffer(app, buffer);
+    if (language)
     {
-        TSNode root = ts_tree_root_node(tree);
-        TSNode visible = ts_node_descendant_for_byte_range(root, (u32)visible_range.start, (u32)visible_range.end);
-        
-        if (tree_data->highlight_query)
+        JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
+        // NOTE(jack): the first time the file opens, the Async parser gets triggered, so may not be immediatly ready.
+        TSTree *tree = jpts_buffer_get_tree(tree_data);
+        if (tree)
         {
+            TSNode root = ts_tree_root_node(tree);
+            TSNode visible = ts_node_descendant_for_byte_range(root, (u32)visible_range.start, (u32)visible_range.end);
             TSQueryCursor *query_cursor = ts_query_cursor_new();
             
             if (ts_node_eq(root, visible))
             {
                 TSTreeCursor tree_cursor = ts_tree_cursor_new(visible);
                 if (!ts_tree_cursor_goto_first_child_for_byte(&tree_cursor, (u32)visible_range.start)) {
-                    ts_highlight_node(app, tree_data->highlight_query, root, query_cursor, text_layout_id);
+                    ts_highlight_node(app, language->highlight_query, root, query_cursor, text_layout_id);
                     
                 } else {
                     do {
                         // Skip nodes which are not 
                         TSNode node = ts_tree_cursor_current_node(&tree_cursor);
-                        Range_i64 child_range = ts_node_to_range(node);
+                        Range_i64 child_range = jpts_node_to_range(node);
                         
                         if (child_range.start > visible_range.end) {
                             break;
                         }
                         
-                        ts_highlight_node(app, tree_data->highlight_query, node, query_cursor, text_layout_id);
+                        ts_highlight_node(app, language->highlight_query, node, query_cursor, text_layout_id);
                     } while(ts_tree_cursor_goto_next_sibling(&tree_cursor));
                 }
             }
             else
             {
-                ts_highlight_node(app, tree_data->highlight_query, visible, query_cursor, text_layout_id);
+                ts_highlight_node(app, language->highlight_query, visible, query_cursor, text_layout_id);
             }
             ts_query_cursor_delete(query_cursor);
+            ts_tree_delete(tree);
         }
     }
-    ts_tree_delete(tree);
 }
 
 function void
-ts_render_buffer(Application_Links *app, View_ID view_id, Face_ID face_id,
-                 Buffer_ID buffer, Text_Layout_ID text_layout_id,
-                 Rect_f32 rect){
+jpts_render_buffer(Application_Links *app, View_ID view_id, Face_ID face_id,
+                   Buffer_ID buffer, Text_Layout_ID text_layout_id,
+                   Rect_f32 rect)
+{
     ProfileScope(app, "render buffer");
     
     View_ID active_view = get_active_view(app, Access_Always);
@@ -95,14 +100,14 @@ ts_render_buffer(Application_Links *app, View_ID view_id, Face_ID face_id,
     Token_Array token_array = get_token_array_from_buffer(app, buffer);
     
     Managed_Scope scope = buffer_get_managed_scope(app, buffer);
-    Buffer_TS_Data*tree_data = scope_attachment(app, scope, ts_data, Buffer_TS_Data);
-    TSTree *tree = ts_buffer_get_tree(tree_data);
+    JPTS_Data*tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
+    TSTree *tree = jpts_buffer_get_tree(tree_data);
     
     // Paint the default color for the entire ranage, specific colors will be overwritten by the tree query
     paint_text_color_fcolor(app, text_layout_id, visible_range, fcolor_id(defcolor_text_default));
     if (tree && token_array.tokens != 0){
         if (use_ts_highlighting) {
-            ts_draw_cpp_token_colors(app, text_layout_id, &token_array, buffer);
+            jpts_draw_node_colors(app, text_layout_id, buffer);
         } else {
             draw_cpp_token_colors(app, text_layout_id, &token_array);
         }

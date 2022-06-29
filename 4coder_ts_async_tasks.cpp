@@ -18,12 +18,19 @@ async_task_cancel_nowait(Application_Links *app, Async_System *async_system, Asy
     system_mutex_release(async_system->mutex);
 }
 
+#if 0
+function const char *
+ts_4coder_read(void *payload, uint32_t byte_index, TSPoint position, uint32_t *bytes_read)
+{
+    Buffer_ID Buffer = *(Buffer_ID *)payload;
+}
+#endif
 
 function void
 ts_parse_async__inner(Async_Context *actx, Buffer_ID buffer)
 {
     Application_Links *app = actx->app;
-    ProfileBlock(app, "tree_sitter async parse");
+    ProfileBlock(app, "ts_parse_async");
     
     Arena arena = make_arena_system(KB(16));
     TSParser *parser = ts_parser_new();
@@ -32,14 +39,15 @@ ts_parse_async__inner(Async_Context *actx, Buffer_ID buffer)
     // TODO(jack): Should the be a different number, 5ms was arbitrary.
     ts_parser_set_timeout_micros(parser, 5000);
     
-    
     acquire_global_frame_mutex(app);
     String_Const_u8 src = push_whole_buffer(app, &arena, buffer);
     Managed_Scope scope = buffer_get_managed_scope(app, buffer);
-    Buffer_TS_Data *tree_data = scope_attachment(app, scope, ts_data, Buffer_TS_Data);
+    JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
     // NOTE(jack): Make a (shallow) copy of the tree incrementing ref count.
-    TSTree *old_tree = ts_buffer_get_tree(tree_data);
-    bool lang_set = ts_parser_set_language(parser, tree_data->language);
+    TSTree *old_tree = jpts_buffer_get_tree(tree_data);
+    String_Const_u8 file_name = push_buffer_file_name(app, &arena, buffer);
+    Language_Definition *lang = jpts_language_from_buffer(app, buffer);
+    bool lang_set = ts_parser_set_language(parser, lang->ts_language);
     release_global_frame_mutex(app);
     
     if (!lang_set) {
@@ -48,26 +56,36 @@ ts_parse_async__inner(Async_Context *actx, Buffer_ID buffer)
     }
     
     TSTree *new_tree = 0;
-    b32 canceled = false; 
-    for (;;) {
-        new_tree = ts_parser_parse_string(parser, old_tree, (char *)src.str, (u32)src.size);
-        if (async_check_canceled(actx)) {
-            canceled = true;
-            break;
-        }
-        if (new_tree) {
-            break;
+    b32 canceled = false;
+    {
+        ProfileScope(app, "Parse Loop"); 
+        for (;;) {
+            {
+                ProfileScope(app, "ParseLoop ts_parser_parse_string");
+                new_tree = ts_parser_parse_string(parser, old_tree, (char *)src.str, (u32)src.size);
+            }
+            // new_tree = ts_parser_parse(parser, old_tree, (char *)src.str, (u32)src.size);
+            if (async_check_canceled(actx)) {
+                canceled = true;
+                break;
+            }
+            if (new_tree) {
+                break;
+            }
         }
     }
-    
     if (!canceled && new_tree) {
         acquire_global_frame_mutex(app);
         
-        // NOTE(jack): Copy the old pointer to delete it outside the mutex.
-        ts_buffer_tree_lock(tree_data);
+        // NOTE(jack): Copy the original reference to the tree to delete it outside the mutex.
+        // if the delete actually free's allocated memory it can be very slow.
+        // NOTE: we dont call ts_tree_copy here because we actually want to delete the original
+        // reference to the tree
+        
+        system_mutex_acquire(tree_data->tree_mutex);
         TSTree *old_buffer_tree = tree_data->tree;
         tree_data->tree = new_tree;
-        ts_buffer_tree_unlock(tree_data);
+        system_mutex_release(tree_data->tree_mutex);
         
         // NOTE(jack): This feels kinda hacky, this is here to trigger
         // the code index update tick. The buffer is also makred  by the
@@ -78,11 +96,12 @@ ts_parse_async__inner(Async_Context *actx, Buffer_ID buffer)
         buffer_mark_as_modified(buffer);
         
         // NOTE(jack): If 4coder is not updatating it saves power by redrawing every
-        // second, however, it doesn't necissariy have to call custom layer to update
-        // so we need to animate on the next frame to cause a redraw of the buffer
-        // after the parse is complete.
+        // second, however, it doesn't animate when doing this, so we need to force
+        // 4coder to animate immediately to highlight
         animate_in_n_milliseconds(app, 0);
         release_global_frame_mutex(app);
+        
+        // NOTE(jack): This is done outside the mutex, because if it 
         ts_tree_delete(old_buffer_tree);
     }
     

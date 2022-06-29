@@ -63,7 +63,7 @@ ts_RenderCaller(Application_Links *app, Frame_Info frame_info, View_ID view_id){
     }
     
     // NOTE(allen): draw the buffer
-    ts_render_buffer(app, view_id, face_id, buffer, text_layout_id, region);
+    jpts_render_buffer(app, view_id, face_id, buffer, text_layout_id, region);
     
     text_layout_free(app, text_layout_id);
     draw_set_clip(app, prev_clip);
@@ -73,7 +73,7 @@ BUFFER_HOOK_SIG(ts_BeginBuffer){
     ProfileScope(app, "Tree-Sitter begin buffer");
     Scratch_Block scratch(app);
     Managed_Scope scope = buffer_get_managed_scope(app, buffer_id);
-    Buffer_TS_Data *tree_data = scope_attachment(app, scope, ts_data, Buffer_TS_Data);
+    JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
     tree_data->tree_mutex = system_mutex_make();
     
     
@@ -90,6 +90,7 @@ BUFFER_HOOK_SIG(ts_BeginBuffer){
                 treat_as_code = true;
                 
                 
+#if 0                
                 if (string_match(ext, string_u8_litexpr("cpp")) ||
                     string_match(ext, string_u8_litexpr("h")) ||
                     string_match(ext, string_u8_litexpr("c")) ||
@@ -102,24 +103,39 @@ BUFFER_HOOK_SIG(ts_BeginBuffer){
                 
                 if (tree_data->language)
                 {
-                    tree_data->parser = ts_parser_new();
-                    bool success = ts_parser_set_language(tree_data->parser, tree_data->language);
-                    if (success) {
+                    if (success)
+                    {
                         u32 error_offset;
-                        TSQueryError error;
-                        tree_data->highlight_query = ts_query_new(tree_data->language, (char*)TS_CPP_HIGHLIGHT_QUERY.str,
-                                                                  (u32)TS_CPP_HIGHLIGHT_QUERY.size,
-                                                                  &error_offset, &error);
-                        if (tree_data->highlight_query == 0) {
+                        TSQueryError query_error;
+                        
+                        {
+                            // TODO(jack): The highlight query should be cached per language this takes
+                            // 20ms+ causing a noticable freeze when loading projects (takes about 4s on this custom layer)
+                            // Buffer_TS_Data; 
+                            ProfileScope(app, "Create Highlight Query");
+                            tree_data->highlight_query = ts_query_new(tree_data->language, (char*)TS_CPP_HIGHLIGHT_QUERY.str,
+                                                                      (u32)TS_CPP_HIGHLIGHT_QUERY.size,
+                                                                      &error_offset, &query_error);
+                        }
+                        
+                        if (tree_data->highlight_query == 0)
+                        {
                             print_message(app, SCu8("Failed to create Highlight query\n"));
+                        }
+                        else
+                        {
+                            AssertMessageAlways("Failed to set create querty investigate\n");
                         }
                     } else {
                         print_message(app, string_u8_litexpr("Failed to set parser language\n"));
                         ts_parser_delete(tree_data->parser);
                         tree_data->parser = 0;
                         tree_data->language = 0;
+                        AssertMessageAlways("Failed to set parser language, Investigate\n");
                     }
                 }
+#endif
+                
                 break;
             }
         }
@@ -151,8 +167,10 @@ BUFFER_HOOK_SIG(ts_BeginBuffer){
     // some time to appear (as the buffer must be fully parsed before the tree-data is added to the
     // buffer attachment);
     
-    if(tree_data->parser)
+    Language_Definition *language = jpts_language_from_buffer(scratch, app, buffer_id);
+    if(language)
     {
+        print_message(app, string_u8_litexpr("Starting async parse\n"));
         Async_Task *parse_task = scope_attachment(app, scope, ts_async_parse_task, Async_Task);
         *parse_task = async_task_no_dep(&global_async_system, ts_parse_async, make_data_struct(&buffer_id));
     }
@@ -188,64 +206,6 @@ BUFFER_HOOK_SIG(ts_BeginBuffer){
     // no meaning for return
     return(0);
 }
-
-#if 0
-function b32
-ts_reparse_buffer(Application_Links *app, Arena *arena, Buffer_ID buffer_id)
-{
-    ProfileScope(app, "tree-sitter reparse");
-    //print_message(app, SCu8("Performing re-parse.\n"));
-    
-    Managed_Scope scope = buffer_get_managed_scope(app, buffer_id);
-    Buffer_TS_Data *tree_data = scope_attachment(app, scope, ts_data, Buffer_TS_Data);
-    String_Const_u8 src = push_whole_buffer(app, arena, buffer_id);
-    
-    TSTree *old_tree = tree_data->tree;
-    TSTree *new_tree = {};
-    {
-        ProfileScope(app, "tree-sitter reparse actual parse");
-        // Limit the parser to 5ms of parsing per call
-        ts_parser_set_timeout_micros(tree_data->parser, 5000);
-        new_tree = ts_parser_parse_string(tree_data->parser, old_tree, (char *)src.str, (u32)src.size);
-    }
-    
-#if 0
-    // Failed for some reason, reparse whole buffer
-    if (!new_tree) {
-        AssertMessageAlways("Can this happen");
-        print_message(app, SCu8("Full Reparse!\n"));
-        ts_parser_reset(tree_data->parser);
-        new_tree = ts_parser_parse_string(tree_data->parser, NULL, (char *)src.str, (u32)src.size);
-    }
-#endif
-    
-    // NOTE(jack): If the parser returned a tree, then it has completed parsing, so set update the tree pointer
-    if (new_tree) {
-        tree_data->tree = new_tree;
-        if (false) {
-            // TODO(jack): Holy shit ts_tree_delete is slow as balls.
-            // Im going to ignore it for now, it shouldnt leak too much, as the reparsed
-            // trees share nodes from the old tree, so only nodes that where deleted from a file
-            // since the initial parse will be leaked. 
-            // NOTE(jack): ts_tree_delete will do reference counting if we ts_tree_copy.
-            // but i will likely need to update the tree on another thread
-            // I could probably also do the code indexing on another thread as well.
-            ProfileScope(app, "tree-sitter reparse Delete old tree");
-            ts_tree_delete(old_tree);
-        }
-        // NOTE(jack): This should be put behind a toggleable flag, because printing the tree, is
-        // very slow
-        if (false && tree_data->tree) {
-            Buffer_ID tree_buff = get_buffer_by_name(app, SCu8("*tree*"), Access_Always);
-            jp_write_ts_tree_to_buffer(app, tree_buff, tree_data->tree);
-        }
-        
-        return true;
-    } else {
-        return false;
-    }
-}
-#endif
 
 BUFFER_EDIT_RANGE_SIG(ts_BufferEditRange){
     // buffer_id, new_range, original_size
@@ -288,7 +248,7 @@ BUFFER_EDIT_RANGE_SIG(ts_BufferEditRange){
     //~ My Edit range stuff
     {
         ProfileScope(app, "ts_BufferEditRange ts_tree edit and parser restart");
-        Buffer_TS_Data *tree_data = scope_attachment(app, scope, ts_data, Buffer_TS_Data);
+        JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
         // NOTE(jack): Edit the tree so the nodes that have moved remain aligned the buffer
         // Reparse to add new nodes later in the modified buffer tick
         if (tree_data->tree)
@@ -309,17 +269,17 @@ BUFFER_EDIT_RANGE_SIG(ts_BufferEditRange){
             print_message(app, SCu8("Performing tree-edit.\n"));
             i64 new_end_line = get_line_number_from_pos(app, buffer_id, new_range.end);
             i64 new_end_pos = new_range.end - get_line_start_pos(app, buffer_id, new_end_line);
-            TSInputEdit edit = {
-                (u32)old_range.start, (u32)old_range.end,
-                (u32)new_range.end,
-                {(u32)old_cursor_range.start.line, (u32)old_cursor_range.start.col},
-                {(u32)old_cursor_range.end.line, (u32)old_cursor_range.end.col},
-                {(u32)new_end_line - 1, (u32)new_end_pos + 1}
-            };
             
-            ts_buffer_tree_lock(tree_data);
+            TSInputEdit edit;
+            edit.start_byte = (u32)old_range.start;
+            edit.old_end_byte = (u32)old_range.end;
+            edit.new_end_byte = (u32)new_range.end;
+            edit.start_point = {(u32)old_cursor_range.start.line, (u32)old_cursor_range.start.col};
+            edit.old_end_point = {(u32)old_cursor_range.end.line, (u32)old_cursor_range.end.col};
+            // TODO(jack): This seams to act correctly but looks very wrong, verify that it is correct.
+            edit.new_end_point = {(u32)new_end_line - 1, (u32)new_end_pos + 1};
+            
             ts_tree_edit(tree_data->tree, &edit);
-            ts_buffer_tree_unlock(tree_data);
             *ts_parse_task = async_task_no_dep(&global_async_system, ts_parse_async, make_data_struct(&buffer_id));
         }
     }
@@ -424,15 +384,13 @@ BUFFER_HOOK_SIG(ts_EndBuffer){
         async_task_cancel(app, &global_async_system, *ts_parse_task);
     }
     
-    Buffer_TS_Data *tree_data = scope_attachment(app, scope, ts_data, Buffer_TS_Data);
-    ts_buffer_tree_lock(tree_data);
-    ts_tree_delete(tree_data->tree);
-    ts_buffer_tree_unlock(tree_data);
-    system_mutex_free(tree_data->tree_mutex);
-    ts_query_delete(tree_data->highlight_query);
-    ts_parser_delete(tree_data->parser);
+    JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
     
+    ts_tree_delete(tree_data->tree);
+    
+    system_mutex_free(tree_data->tree_mutex);
     default_end_buffer(app, buffer_id);
+    
     return(0);
 }
 
@@ -485,8 +443,8 @@ ts_code_index_update_tick(Application_Links *app)
         Ts_Code_Index_Nest_DList nests = {};
         
         Managed_Scope scope = buffer_get_managed_scope(app, buffer_id);
-        Buffer_TS_Data *tree_data = scope_attachment(app, scope, ts_data, Buffer_TS_Data);
-        TSTree *tree = ts_buffer_get_tree(tree_data);
+        JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
+        TSTree *tree = jpts_buffer_get_tree(tree_data);
         if (tree) {
             TSQueryCursor *query_cursor = ts_query_cursor_new();
             ts_query_cursor_exec(query_cursor, cpp_index_query, ts_tree_root_node(tree));
@@ -500,17 +458,17 @@ ts_code_index_update_tick(Application_Links *app)
                 // ScopeNest
                 TSQueryCapture type_capture = match.captures[0];
                 TSNode type_node = type_capture.node;
-                Range_i64 type_range = ts_node_to_range(type_node);
+                Range_i64 type_range = jpts_node_to_range(type_node);
                 
                 // Start
                 TSQueryCapture start_capture = match.captures[1];
                 TSNode start_node = start_capture.node;
-                Range_i64 start_range = ts_node_to_range(start_node);
+                Range_i64 start_range = jpts_node_to_range(start_node);
                 
                 // End
                 TSQueryCapture end_capture = match.captures[2];
                 TSNode end_node = end_capture.node;
-                Range_i64 end_range = ts_node_to_range(end_node);
+                Range_i64 end_range = jpts_node_to_range(end_node);
                 end_range.start = end_range.end - 1;
                 Ts_Code_Index_Nest_DList_Node *node = push_array_zero(scratch, Ts_Code_Index_Nest_DList_Node, 1);
                 node->nest = push_array_zero(&arena, Code_Index_Nest, 1);

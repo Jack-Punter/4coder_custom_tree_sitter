@@ -69,12 +69,15 @@ del *.obj
 REM tree-sitter lib
 call cl -c /O2 %includes% /nologo /Zi %custom_root%\tree-sitter\lib.c   /Fotree-sitter-lib.obj
 
-REM C++ (This needs to be two calls to cl so that you can specify the obj file names
+REM C++ Parser (This needs to be two calls to cl so that you can specify the obj file names)
 call cl -c /O2 %includes% /nologo /Zi %custom_root%\lang\cpp\parser.c   /Focpp_parser.obj
 call cl -c /O2 %includes% /nologo /Zi %custom_root%\lang\cpp\scanner.cc /Focpp_scanner.obj
 
-REM C
+REM C Parser
 call cl -c /O2 %includes% /nologo /Zi %custom_root%\lang\c\parser.c     /Foc_parser.obj
+
+REM Odin Parser
+call cl -c /O2 %includes% /nologo /Zi %custom_root%\lang\odin\parser.c  /Foodin_parser.obj
 
 REM Link tree-sitter lib and parser obj files into a static library to link into main custom dll
 call lib  /nologo *.obj /OUT:tree-sitter.lib

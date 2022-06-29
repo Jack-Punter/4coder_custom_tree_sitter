@@ -11,74 +11,34 @@
 #include "metadesk/md.c"
 
 #include "4coder_default_include.cpp"
-
 #include "tree_sitter/api.h"
-String_Const_u8 TS_CPP_HIGHLIGHT_QUERY = string_u8_litexpr("(call_expression function: ["
-                                                           " (identifier) @fleury_color_index_function"
-                                                           " (field_expression field: (field_identifier) @fleury_color_index_function)])"
-                                                           "(function_declarator"
-                                                           " declarator: [(identifier) (field_identifier)] @fleury_color_index_function)"
-                                                           
-                                                           "(preproc_def"
-                                                           " name: (identifier) @fleury_color_index_macro)"
-                                                           "(preproc_function_def"
-                                                           " name: (identifier) @fleury_color_index_macro)"
-                                                           
-                                                           "(type_identifier) @fleury_color_index_product_type"
-                                                           "(call_expression"
-                                                           " function: (parenthesized_expression"
-                                                           "  (identifier) @fleury_color_index_product_type))"
-                                                           
-                                                           "[(primitive_type) (type_qualifier) (storage_class_specifier)"
-                                                           " (break_statement) (continue_statement) \"union\" \"return\" \"do\""
-                                                           " \"while\" \"for\" \"if\" \"class\" \"struct\" \"enum\" \"sizeof\""
-                                                           " \"else\" \"switch\" \"case\"] @defcolor_keyword"
-                                                           
-                                                           "[(number_literal) (string_literal)] @defcolor_str_constant"
-                                                           "[(preproc_directive) \"#define\" \"#if\" \"#elif\" \"#else\" \"#endif\""
-                                                           " \"#include\"] @defcolor_preproc"
-                                                           "[\"{\" \"}\" \";\" \":\" \",\"] @fleury_color_syntax_crap"
-                                                           "(comment) @defcolor_comment");
 
-struct Buffer_TS_Data {
+
+// TODO(jack): Im starting to thing that the buffer attachment should just be the TSTree *
+// and we should just utilise the global_frame_mutex for protecting it
+struct JPTS_Data {
     TSTree *tree;
-    TSLanguage *language;
-    TSParser *parser;
-    TSQuery *highlight_query;
+    // TODO(jack): is this mutex actually needed? ts_tree_copy is an atomic reference count
     
-    // TODO(jack): is this mutex actually needed?
-    // ts_tree_copy does an atomic reference count
+    // NOTE(jack): I think this is only needed to guard access to the actuall pointer 
+    // from another thread, not Tree-sitter calls using the tree
     System_Mutex tree_mutex;
 };
 
-function void
-ts_buffer_tree_lock(Buffer_TS_Data *tree_data) {
-    system_mutex_acquire(tree_data->tree_mutex);
-}
-
-function void
-ts_buffer_tree_unlock(Buffer_TS_Data *tree_data) {
-    system_mutex_release(tree_data->tree_mutex);
-}
-
 function TSTree *
-ts_buffer_get_tree(Buffer_TS_Data *tree_data) {
+jpts_buffer_get_tree(JPTS_Data *tree_data) {
     TSTree *result = 0;
-    // ts_buffer_tree_lock(tree_data);
     if (tree_data->tree) {
         result = ts_tree_copy(tree_data->tree);
     }
-    // ts_buffer_tree_unlock(tree_data);
     return result;
 }
 
-extern "C" {
-    TSLanguage *tree_sitter_cpp();
-    TSLanguage *tree_sitter_c();
-}
-
+// TODO(jack): This is just for the *query* buffer. I need to decide how to deal
+// with this once we add multiple languages. Maybe we can have a query per the
+// Language_Definition. we can create them from the *query* buffer when a buffer
+// of that language is visible?
 TSQuery *active_query;
-
 
 global b32 use_ts_highlighting = true;
 
@@ -106,7 +66,7 @@ CUSTOM_DOC("Toggle Code Indexing Mode")
 
 //- Tree sitter extension attachements
 CUSTOM_ID(attachment, ts_data);
-CUSTOM_ID(attachment, ts_async_parse_task); 
+CUSTOM_ID(attachment, ts_async_parse_task);
 
 //- Colors
 CUSTOM_ID(colors, fleury_color_syntax_crap);
@@ -180,15 +140,37 @@ jp_write_ts_tree_to_buffer(Application_Links *app, Buffer_ID buffer_id, TSTree *
     TSNode root = ts_tree_root_node(tree);
     jp_write_ts_tree_to_buffer__inner(app, scratch, buffer_id, root);
 }
+
+CUSTOM_COMMAND_SIG(jpts_write_tree)
+CUSTOM_DOC("Toggle Code Indexing Mode")
+{
+    Scratch_Block scratch(app);
+    Buffer_ID out_buffer = get_buffer_by_name(app, string_u8_litexpr("*tree*"), Access_Always);
+    
+    View_ID view = get_active_view(app, Access_Always);
+    Buffer_ID buffer = view_get_buffer(app, view, Access_Visible);
+    
+    Managed_Scope scope = buffer_get_managed_scope(app, buffer);
+    JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
+    
+    if (tree_data->tree)
+    {
+        TSNode root = ts_tree_root_node(tree_data->tree);
+        jp_write_ts_tree_to_buffer__inner(app, scratch, out_buffer, root);
+    }
+}
+
 function Range_i64
-ts_node_to_range(TSNode node) {
+jpts_node_to_range(TSNode node) {
     Range_i64 result = {ts_node_start_byte(node), ts_node_end_byte(node)};
     return result;
 }
 
-#include "4coder_ts_async_parse.cpp"
+#include "4coder_ts_languages.h"
+#include "4coder_ts_async_tasks.cpp"
 #include "4coder_ts_render.cpp"
 #include "4coder_ts_hooks.cpp"
+#include "4coder_ts_languages.cpp"
 
 #if !defined(META_PASS)
 #include "generated/managed_id_metadata.cpp"
@@ -238,6 +220,8 @@ void custom_layer_init(Application_Links *app)
         setup_built_in_mapping(app, mapping, &framework_mapping, global_map_id, file_map_id, code_map_id);
     }
     
+    jpts_register_languages(app);
+    
     Buffer_ID buffer = create_buffer(app, string_u8_litexpr("*tree*"),
                                      BufferCreate_NeverAttachToFile |
                                      BufferCreate_AlwaysNew);
@@ -249,16 +233,16 @@ void custom_layer_init(Application_Links *app)
                            BufferCreate_AlwaysNew);
     buffer_set_setting(app, buffer, BufferSetting_Unimportant, true);
     
+#if 0    
     buffer = create_buffer(app, string_u8_litexpr("*highlight query*"),
                            BufferCreate_NeverAttachToFile |
                            BufferCreate_AlwaysNew);
     buffer_set_setting(app, buffer, BufferSetting_Unimportant, true);
     buffer_set_setting(app, buffer, BufferSetting_ReadOnly, true);
+#endif
     
     print_message(app, string_u8_litexpr("init_complete"));
     
-    TSLanguage *language_c = tree_sitter_c();
-    (void)language_c;
 }
 
 #endif //FCODER_DEFAULT_BINDINGS
