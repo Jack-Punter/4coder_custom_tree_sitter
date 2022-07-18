@@ -2,6 +2,12 @@
 4coder_default_bidings.cpp - Supplies the default bindings used for default 4coder behavior.
 */
 
+
+/* TODO(jack): 
+ * [ ] - Wrapper around querying to support query predicates #match is often used in highlight.scm files. See: 
+ *       https://tree-sitter.github.io/tree-sitter/using-parsers#predicates
+ */
+
 // TOP
 
 #if !defined(FCODER_DEFAULT_BINDINGS_CPP)
@@ -14,7 +20,7 @@
 #include "tree_sitter/api.h"
 
 
-// TODO(jack): Im starting to thing that the buffer attachment should just be the TSTree *
+// TODO(jack): Im starting to think that the buffer attachment should just be the TSTree *
 // and we should just utilise the global_frame_mutex for protecting it
 struct JPTS_Data {
     TSTree *tree;

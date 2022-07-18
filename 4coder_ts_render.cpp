@@ -1,15 +1,16 @@
-
 // TODO(jack): Currently this code is not correct, if the query has multiple matches for the same node type
 // this will highlight whaterver the last entry is, not the most specific
 // (i.e. is it a child in a query or just query for that node type)
 function void
-ts_highlight_node(Application_Links *app, TSQuery *highlight_query, TSNode top_node, TSQueryCursor * query_cursor, Text_Layout_ID text_layout_id)
+jpts_highlight_node(Application_Links *app, TSQuery *highlight_query, TSNode top_node, TSQueryCursor * query_cursor, Text_Layout_ID text_layout_id, Range_i64 visible_range)
 {
     ProfileScope(app, "ts_highlight_node");
-    //TSQueryCursor *query_cursor = ts_query_cursor_new();
     ts_query_cursor_exec(query_cursor, highlight_query, top_node);
     TSQueryMatch match;
     u32 capture_index;
+    
+    // TODO(jack): Do these come back in lexicographic order? 
+    // We can skip forwards for nodes leading the visible range and early out after the visibel range.
     while (ts_query_cursor_next_capture(query_cursor, &match, &capture_index))
     {
         TSQueryCapture capture = match.captures[capture_index];
@@ -24,7 +25,6 @@ ts_highlight_node(Application_Links *app, TSQuery *highlight_query, TSNode top_n
             paint_text_color_fcolor(app, text_layout_id, highlight_range, fcolor_id(color_id));
         }
     }
-    //ts_query_cursor_delete(query_cursor);
 }
 
 function void
@@ -43,34 +43,31 @@ jpts_draw_node_colors(Application_Links *app, Text_Layout_ID text_layout_id, Buf
         TSTree *tree = jpts_buffer_get_tree(tree_data);
         if (tree)
         {
+            Scratch_Block scratch(app);
+            String_Const_u8 visible_range_string = push_buffer_range(app, scratch, buffer, visible_range);
+            u64 first_non_whitespace = string_find_first_non_whitespace(visible_range_string);
+            
+            // TODO(jack): The root node is the file, although this may not be the be true in multi-lang files,
+            // but I do _NOT_ want to deal with those yet.
             TSNode root = ts_tree_root_node(tree);
+            
             TSNode visible = ts_node_descendant_for_byte_range(root, (u32)visible_range.start, (u32)visible_range.end);
             TSQueryCursor *query_cursor = ts_query_cursor_new();
+            TSTreeCursor tree_cursor = ts_tree_cursor_new(visible);
             
-            if (ts_node_eq(root, visible))
-            {
-                TSTreeCursor tree_cursor = ts_tree_cursor_new(visible);
-                if (!ts_tree_cursor_goto_first_child_for_byte(&tree_cursor, (u32)visible_range.start)) {
-                    ts_highlight_node(app, language->highlight_query, root, query_cursor, text_layout_id);
-                    
-                } else {
-                    do {
-                        // Skip nodes which are not 
-                        TSNode node = ts_tree_cursor_current_node(&tree_cursor);
-                        Range_i64 child_range = jpts_node_to_range(node);
-                        
-                        if (child_range.start > visible_range.end) {
-                            break;
-                        }
-                        
-                        ts_highlight_node(app, language->highlight_query, node, query_cursor, text_layout_id);
-                    } while(ts_tree_cursor_goto_next_sibling(&tree_cursor));
+            ts_tree_cursor_goto_first_child_for_byte(&tree_cursor, (u32)(visible_range.start + first_non_whitespace));
+            b32 cont = true;
+            do {
+                TSNode node = ts_tree_cursor_current_node(&tree_cursor);
+                Range_i64 node_range = jpts_node_to_range(node);
+                if (node_range.start > visible_range.end) {
+                    break;
                 }
-            }
-            else
-            {
-                ts_highlight_node(app, language->highlight_query, visible, query_cursor, text_layout_id);
-            }
+                jpts_highlight_node(app, language->highlight_query, node, query_cursor, text_layout_id, visible_range);
+                cont =  ts_tree_cursor_goto_next_sibling(&tree_cursor);
+            } while(cont);
+            
+            ts_tree_cursor_delete(&tree_cursor);
             ts_query_cursor_delete(query_cursor);
             ts_tree_delete(tree);
         }
