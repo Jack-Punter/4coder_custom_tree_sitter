@@ -229,6 +229,7 @@ BUFFER_EDIT_RANGE_SIG(ts_BufferEditRange){
     Managed_Scope scope = buffer_get_managed_scope(app, buffer_id);
     Scratch_Block scratch(app);
     
+#if 0    
     //- NOTE(jack): Update the active query if the buffer was the queyrbuffer
     if(buffer_id == get_buffer_by_name(app, SCu8("*query*"), Access_Always))
     {
@@ -245,6 +246,8 @@ BUFFER_EDIT_RANGE_SIG(ts_BufferEditRange){
             print_message(app, SCu8("Failed to create query"));
         }
     }
+#endif
+    
     //~ My Edit range stuff
     {
         ProfileScope(app, "ts_BufferEditRange ts_tree edit and parser restart");
@@ -386,6 +389,7 @@ BUFFER_HOOK_SIG(ts_EndBuffer){
     
     JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
     
+    // TODO(jack): HOLY SHIT THIS IS SLOW!!!!!!!!!
     ts_tree_delete(tree_data->tree);
     
     system_mutex_free(tree_data->tree_mutex);
@@ -415,6 +419,7 @@ struct Ts_Code_Index_Nest_DList {
 };
 
 
+#if 0
 function void
 ts_code_index_update_tick(Application_Links *app)
 {
@@ -556,7 +561,7 @@ ts_code_index_update_tick(Application_Links *app)
     
     //buffer_modified_set_clear();
 }
-
+#endif
 
 function void
 ts_Tick(Application_Links *app, Frame_Info frame_info){
@@ -564,11 +569,15 @@ ts_Tick(Application_Links *app, Frame_Info frame_info){
     // NOTE(allen): Update code index
     {
         ProfileScope(app, "Code Index Update Tick");
+#if 0
         if (use_ts_code_indexing) {
             ts_code_index_update_tick(app);
         } else {
             code_index_update_tick(app);
         }
+#else 
+        code_index_update_tick(app);
+#endif
     }
     ////////////////////////////////
     // NOTE(allen): Update fade ranges

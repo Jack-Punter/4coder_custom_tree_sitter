@@ -3,12 +3,6 @@
 #ifndef JPTS_LANGUAGES_H
 #define JPTS_LANGUAGES_H
 
-extern "C" {
-    TSLanguage *tree_sitter_cpp();
-    TSLanguage *tree_sitter_c();
-    TSLanguage *tree_sitter_odin();
-}
-
 struct Language_Definition
 {
     Language_Definition *next;

@@ -58,9 +58,10 @@ call cl %opts% %meta_opts% "%meta_target%"
 call cl %opts% "%custom_root%\4coder_metadata_generator.cpp" /Femetadata_generator
 metadata_generator -R "%custom_root%" "%cd%\%preproc_file%"
 
+REM -----------------------------------------------------------------------------------------------------------------------
+
 REM Build the tree_sitter parser, scanner and library in release mode for performance 
 REM despite what mode the custom layer is being built in
-
 echo:
 echo Compile and link tree-sitter library and parsers
 echo ---------------------------------

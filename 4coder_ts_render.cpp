@@ -10,7 +10,7 @@ jpts_highlight_node(Application_Links *app, TSQuery *highlight_query, TSNode top
     u32 capture_index;
     
     // TODO(jack): Do these come back in lexicographic order? 
-    // We can skip forwards for nodes leading the visible range and early out after the visibel range.
+    // We can skip forwards for nodes leading the visible range and early out after the visible range.
     while (ts_query_cursor_next_capture(query_cursor, &match, &capture_index))
     {
         TSQueryCapture capture = match.captures[capture_index];
