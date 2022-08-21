@@ -1,0 +1,18 @@
+// NOTE(jack): Table to generate lookup from capture name to theme color
+// This is global to all languages. i dont see a reason to have this be defined per lanauge but.... maybe?
+@table(capture_name, theme_color)
+{
+    // TODO(jack): Actually implmenet the table generator
+    {function, fleury_color_index_function},
+}
+
+// NOTE(jack): These filepaths assume the working directory is 4coder_custom_tree_sitter/build
+languages:
+{
+    language_c: "../lang/c/language_c.mdesk",
+    
+    @extends(language_c)
+        language_cpp: "../lang/cpp/language_cpp.mdesk",
+    
+    language_odin: "../lang/odin/language_odin.mdesk",
+}

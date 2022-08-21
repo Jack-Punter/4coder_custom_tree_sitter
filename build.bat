@@ -13,7 +13,7 @@ echo Metadesk Build
 
 echo ---------------------------------
 del .\jpts_prebuild.exe
-call cl /Od /nologo /W3 /Zi /FC ..\jpts_prebuild.c %includes%
+call cl /Od /nologo /W3 /Zi /FC ..\jpts_prebuild.cpp %includes%
 call jpts_prebuild.exe
 echo:
 

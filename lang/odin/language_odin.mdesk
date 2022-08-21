@@ -1,0 +1,35 @@
+function_name: tree_sitter_odin;
+
+extensions: {
+    odin
+}
+
+highlight_query: """
+(keyword) @defcolor_keyword
+(operator) @fleury_color_operators
+
+(int_literal)   @defcolor_int_constant
+(float_literal) @defcolor_int_constant
+(rune_literal)  @defcolor_int_constant
+(bool_literal) @defcolor_bool_constant
+(nil) @constant.builtin
+
+(ERROR) @fleury_color_error_annotation
+
+(type_identifier)    @fleury_color_index_product_type
+(package_identifier) @fleury_color_index_constant
+(label_identifier)   @label
+
+(interpreted_string_literal) @defcolor_str_constant
+(raw_string_literal) @defcolor_str_constant
+(escape_sequence) @fleury_color_lego_grab
+
+(comment) @defcolor_comment
+(const_identifier) @fleury_color_index_constant
+
+(compiler_directive) @fleury_color_index_macro
+(calling_convention) @fleury_color_index_macro
+
+(identifier) @defcolor_text_default
+(pragma_identifier) @fleury_color_index_macro
+"""

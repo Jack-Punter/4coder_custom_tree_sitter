@@ -1,0 +1,90 @@
+function_name: tree_sitter_c;
+
+extensions: {
+    c,
+}
+
+highlight_query: """
+"break" @defcolor_keyword
+"case" @defcolor_keyword
+"const" @defcolor_keyword
+"continue" @defcolor_keyword
+"default" @defcolor_keyword
+"do" @defcolor_keyword
+"else" @defcolor_keyword
+"enum" @defcolor_keyword
+"extern" @defcolor_keyword
+"for" @defcolor_keyword
+"if" @defcolor_keyword
+"inline" @defcolor_keyword
+"return" @defcolor_keyword
+"sizeof" @defcolor_keyword
+"static" @defcolor_keyword
+"struct" @defcolor_keyword
+"switch" @defcolor_keyword
+"typedef" @defcolor_keyword
+"union" @defcolor_keyword
+"volatile" @defcolor_keyword
+"while" @defcolor_keyword
+
+"#define" @defcolor_keyword
+"#elif" @defcolor_keyword
+"#else" @defcolor_keyword
+"#endif" @defcolor_keyword
+"#if" @defcolor_keyword
+"#ifdef" @defcolor_keyword
+"#ifndef" @defcolor_keyword
+"#include" @defcolor_keyword
+(preproc_directive) @defcolor_keyword
+
+"--" @fleury_color_operators
+"-" @fleury_color_operators
+"-=" @fleury_color_operators
+"->" @fleury_color_operators
+"=" @fleury_color_operators
+"!=" @fleury_color_operators
+"*" @fleury_color_operators
+"&" @fleury_color_operators
+"&&" @fleury_color_operators
+"+" @fleury_color_operators
+"++" @fleury_color_operators
+"+=" @fleury_color_operators
+"<" @fleury_color_operators
+"==" @fleury_color_operators
+">" @fleury_color_operators
+"||" @fleury_color_operators
+
+"." @fleury_color_syntax_crap
+";" @fleury_color_syntax_crap
+
+(string_literal) @defcolor_str_constant
+(system_lib_string) @defcolor_str_constant
+
+(null) @fleury_color_index_constant
+(number_literal) @defcolor_int_constant
+(char_literal) @defcolor_int_constant
+
+(call_expression
+ function: (identifier) @fleury_color_index_function)
+(call_expression
+ function: (field_expression
+            field: (field_identifier) @fleury_color_index_function))
+(function_declarator
+ declarator: (identifier) @fleury_color_index_function)
+(preproc_function_def
+ name: (identifier) @fleury_color_index_function)
+
+(field_identifier) @defcolor_text_default
+(statement_identifier) @defcolor_text_default
+(type_identifier) @fleury_color_index_product_type
+(primitive_type) @fleury_color_index_product_type
+(sized_type_specifier) @fleury_color_index_product_type
+
+; ((identifier) @fleury_color_index_constant
+   ;  (#match? @fleury_color_index_constant "^[A-Z][A-Z\\d_]*$"))
+       
+       ; (identifier) @defcolor_text_default
+       
+       (comment) @defcolor_comment
+       """
+       

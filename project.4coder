@@ -1,5 +1,5 @@
 version(1);
-project_name = "4coder custom";
+project_name = "4coder custom tree-sitter";
 
 patterns = {
     "*.c",
@@ -11,13 +11,13 @@ patterns = {
     "*.sh",
     "*.4coder",
     "*.txt",
-    "*.metadesk"
+    "*.mdesk"
 };
 blacklist_patterns = {
     ".*",
 };
 load_paths_custom = {
-    {"."},
+    {".", .recursive = true},
 };
 load_paths = {
     { load_paths_custom, .os = "win"  },

@@ -1,0 +1,87 @@
+function_name: tree_sitter_cpp;
+
+extensions: {
+    cpp,
+    cc,
+    hpp,
+    cxx,
+    h,
+}
+
+highlight_query: """
+; Functions
+
+(call_expression
+ function: (qualified_identifier
+            name: (identifier) @fleury_color_index_function))
+
+(template_function
+ name: (identifier) @fleury_color_index_function)
+
+(template_method
+ name: (field_identifier) @fleury_color_index_function)
+
+(template_function
+ name: (identifier) @fleury_color_index_function)
+
+(function_declarator
+ declarator: (qualified_identifier
+              name: (identifier) @fleury_color_index_function))
+
+(function_declarator
+ declarator: (qualified_identifier
+              name: (identifier) @fleury_color_index_function))
+
+(function_declarator
+ declarator: (field_identifier) @fleury_color_index_function)
+
+; Types
+
+((namespace_identifier) @fleury_color_index_product_type
+ (#match? @fleury_color_index_product_type "^[A-Z]"))
+  
+  (auto) @fleury_color_index_product_type
+  
+  ; Constants
+  
+  (this) @defcolor_text_default
+  (nullptr) @defcolor_str_constant
+  
+  ; Keywords
+  
+  [
+   "catch"
+   "class"
+   "co_await"
+   "co_return"
+   "co_yield"
+   "constexpr"
+   "constinit"
+   "consteval"
+   "delete"
+   "explicit"
+   "final"
+   "friend"
+   "mutable"
+   "namespace"
+   "noexcept"
+   "new"
+   "override"
+   "private"
+   "protected"
+   "public"
+   "template"
+   "throw"
+   "try"
+   "typename"
+   "using"
+   "virtual"
+   "concept"
+   "requires"
+   ] @defcolor_keyword
+  
+  ; Strings
+  
+  (raw_string_literal) @defcolor_string_constant
+  """
+  
