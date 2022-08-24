@@ -80,6 +80,9 @@ call cl -c /O2 %includes% /nologo /Zi %custom_root%\lang\c\parser.c     /Foc_par
 REM Odin Parser
 call cl -c /O2 %includes% /nologo /Zi %custom_root%\lang\odin\parser.c  /Foodin_parser.obj
 
+REM Go Parser
+call cl -c /O2 %includes% /nologo /Zi %custom_root%\lang\go\parser.c  /Fogo_parser.obj
+
 REM Link tree-sitter lib and parser obj files into a static library to link into main custom dll
 call lib  /nologo *.obj /OUT:tree-sitter.lib
 

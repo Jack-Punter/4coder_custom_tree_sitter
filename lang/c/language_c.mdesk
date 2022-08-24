@@ -64,16 +64,6 @@ highlight_query: """
 (number_literal) @defcolor_int_constant
 (char_literal) @defcolor_int_constant
 
-(call_expression
- function: (identifier) @fleury_color_index_function)
-(call_expression
- function: (field_expression
-            field: (field_identifier) @fleury_color_index_function))
-(function_declarator
- declarator: (identifier) @fleury_color_index_function)
-(preproc_function_def
- name: (identifier) @fleury_color_index_function)
-
 (field_identifier) @defcolor_text_default
 (statement_identifier) @defcolor_text_default
 (type_identifier) @fleury_color_index_product_type
@@ -86,5 +76,15 @@ highlight_query: """
        ; (identifier) @defcolor_text_default
        
        (comment) @defcolor_comment
+       
+       (call_expression
+        function: (identifier) @fleury_color_index_function)
+       (call_expression
+        function: (field_expression
+                   field: (field_identifier) @fleury_color_index_function))
+       (function_declarator
+        declarator: (identifier) @fleury_color_index_function)
+       (preproc_function_def
+        name: (identifier) @fleury_color_index_function)
        """
        

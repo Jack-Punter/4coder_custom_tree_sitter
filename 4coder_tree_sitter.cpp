@@ -13,6 +13,7 @@
 #if !defined(FCODER_DEFAULT_BINDINGS_CPP)
 #define FCODER_DEFAULT_BINDINGS_CPP
 
+// TODO(jack): Do I actually need metadesk in here? or is it just going to stay as a build step?
 #include "metadesk/md.h"
 #include "metadesk/md.c"
 
@@ -24,8 +25,6 @@
 // and we should just utilise the global_frame_mutex for protecting it
 struct JPTS_Data {
     TSTree *tree;
-    // TODO(jack): is this mutex actually needed? ts_tree_copy is an atomic reference count
-    
     // NOTE(jack): I think this is only needed to guard access to the actuall pointer 
     // from another thread, not Tree-sitter calls using the tree
     System_Mutex tree_mutex;
@@ -75,6 +74,7 @@ CUSTOM_ID(attachment, ts_data);
 CUSTOM_ID(attachment, ts_async_parse_task);
 
 //- Colors
+// TODO(jack): Consolidate these, we probably dont care about a lot of these
 CUSTOM_ID(colors, fleury_color_syntax_crap);
 CUSTOM_ID(colors, fleury_color_operators);
 CUSTOM_ID(colors, fleury_color_inactive_pane_overlay);

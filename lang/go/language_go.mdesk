@@ -1,0 +1,135 @@
+function_name: tree_sitter_go;
+
+extensions: {
+    go
+}
+
+highlight_query: """
+
+; Identifiers
+
+(type_identifier) @fleury_color_index_product_type
+(field_identifier) @defcolor_text_default
+(identifier) @defcolor_text_default
+
+; Operators
+
+[
+ "--"
+ "-"
+ "-="
+ ":="
+ "!"
+ "!="
+ "..."
+ "*"
+ "*"
+ "*="
+ "/"
+ "/="
+ "&"
+ "&&"
+ "&="
+ "%"
+ "%="
+ "^"
+ "^="
+ "+"
+ "++"
+ "+="
+ "<-"
+ "<"
+ "<<"
+ "<<="
+ "<="
+ "="
+ "=="
+ ">"
+ ">="
+ ">>"
+ ">>="
+ "|"
+ "|="
+ "||"
+ "~"
+ ] @fleury_color_operators
+
+; Keywords
+
+[
+ "break"
+ "case"
+ "chan"
+ "const"
+ "continue"
+ "default"
+ "defer"
+ "else"
+ "fallthrough"
+ "for"
+ "func"
+ "go"
+ "goto"
+ "if"
+ "import"
+ "interface"
+ "map"
+ "package"
+ "range"
+ "return"
+ "select"
+ "struct"
+ "switch"
+ "type"
+ "var"
+ ] @defcolor_keyword
+
+; Literals
+
+[
+ (interpreted_string_literal)
+ (raw_string_literal)
+ (rune_literal)
+ ] @defcolor_str_constant
+
+(escape_sequence) @fleury_color_index_constant
+
+[
+ (int_literal)
+ (float_literal)
+ (imaginary_literal)
+ ] @defcolor_int_constant
+
+[
+ (true)
+ (false)
+ (nil)
+ (iota)
+ ] @defcolor_str_constant
+
+(comment) @defcolor_comment
+
+; Function calls
+
+(call_expression
+ function: (identifier) @fleury_color_index_function)
+
+(call_expression
+ function: (selector_expression
+            field: (field_identifier) @fleury_color_index_function))
+
+; Function definitions
+
+(function_declaration
+ name: (identifier) @fleury_color_index_function)
+
+(method_declaration
+ name: (field_identifier) @fleury_color_index_function)
+
+; Custom
+
+(qualified_type
+ package: (package_identifier) @fleury_color_index_product_type
+ name: (type_identifier) @fleury_color_index_product_type)
+
+"""

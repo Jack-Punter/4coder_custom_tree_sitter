@@ -23,6 +23,8 @@ jpts_highlight_node(Application_Links *app, TSQuery *highlight_query, TSNode top
         Managed_ID color_id = managed_id_get(app, SCu8("colors"), capture_name);
         if (color_id != 0) {
             paint_text_color_fcolor(app, text_layout_id, highlight_range, fcolor_id(color_id));
+        } else {
+            AssertMessageAlways("Missing Color for capture name");
         }
     }
 }

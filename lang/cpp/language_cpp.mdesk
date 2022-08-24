@@ -9,32 +9,6 @@ extensions: {
 }
 
 highlight_query: """
-; Functions
-
-(call_expression
- function: (qualified_identifier
-            name: (identifier) @fleury_color_index_function))
-
-(template_function
- name: (identifier) @fleury_color_index_function)
-
-(template_method
- name: (field_identifier) @fleury_color_index_function)
-
-(template_function
- name: (identifier) @fleury_color_index_function)
-
-(function_declarator
- declarator: (qualified_identifier
-              name: (identifier) @fleury_color_index_function))
-
-(function_declarator
- declarator: (qualified_identifier
-              name: (identifier) @fleury_color_index_function))
-
-(function_declarator
- declarator: (field_identifier) @fleury_color_index_function)
-
 ; Types
 
 ((namespace_identifier) @fleury_color_index_product_type
@@ -83,5 +57,32 @@ highlight_query: """
   ; Strings
   
   (raw_string_literal) @defcolor_string_constant
+  
+  ; Functions
+  
+  (call_expression
+   function: (qualified_identifier
+              name: (identifier) @fleury_color_index_function))
+  
+  (template_function
+   name: (identifier) @fleury_color_index_function)
+  
+  (template_method
+   name: (field_identifier) @fleury_color_index_function)
+  
+  (template_function
+   name: (identifier) @fleury_color_index_function)
+  
+  (function_declarator
+   declarator: (qualified_identifier
+                name: (identifier) @fleury_color_index_function))
+  
+  (function_declarator
+   declarator: (qualified_identifier
+                name: (identifier) @fleury_color_index_function))
+  
+  (function_declarator
+   declarator: (field_identifier) @fleury_color_index_function)
+  
   """
   

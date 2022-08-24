@@ -47,7 +47,6 @@ TableEntry *HashTableLookup_(HashTable *table, MD_String8 key)
     return result;
 }
 
-// NOTE(jack): Hash table object _MUST_ have the TableEntry object as their first member.
 #define HashTableInsert(table, key, obj) HashTableInsert_(table, key, (TableEntry *)obj)
 #define HashTableLookup(table, key, ObjType) (ObjType *)HashTableLookup_(table, key)
 

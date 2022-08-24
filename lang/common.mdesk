@@ -15,4 +15,8 @@ languages:
         language_cpp: "../lang/cpp/language_cpp.mdesk",
     
     language_odin: "../lang/odin/language_odin.mdesk",
+    language_go: "../lang/go/language_go.mdesk",
 }
+
+// NOTE(jack): _IMPORTANT_ When adding a language you should probably restructure the highlight queries so that single node
+// captures occur at the top of the query. See TODO(jack): in 4coder_ts_render.cpp
