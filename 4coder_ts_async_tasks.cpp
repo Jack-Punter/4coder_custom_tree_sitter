@@ -42,7 +42,11 @@ ts_parse_async__inner(Async_Context *actx, Buffer_ID buffer)
     acquire_global_frame_mutex(app);
     String_Const_u8 src = push_whole_buffer(app, &arena, buffer);
     Managed_Scope scope = buffer_get_managed_scope(app, buffer);
+    
+    // TODO(jack): Apparently its possible for scope_attachment to return a null pointer :|
+    // So I need to guard against this, although im not sure what I can do about it.
     JPTS_Data *tree_data = scope_attachment(app, scope, ts_data, JPTS_Data);
+    
     // NOTE(jack): Make a (shallow) copy of the tree incrementing ref count.
     TSTree *old_tree = jpts_buffer_get_tree(tree_data);
     String_Const_u8 file_name = push_buffer_file_name(app, &arena, buffer);

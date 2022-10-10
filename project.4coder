@@ -26,8 +26,8 @@ load_paths = {
 };
 
 build_win32 = "build.bat";
-build_linux  = "bin/buildsuper_x64-linux.sh";
-build_mac  = "bin/buildsuper_x64-mac.sh";
+build_linux  = "echo \"Platform not Implemented\"";
+build_mac  = "echo \"Platform not Implemented\"";
 
 command_list = {
     {
